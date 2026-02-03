@@ -1,10 +1,8 @@
-use std::{env, error::Error, fs, process};
 use minigrep::{search, search_insensitive};
+use std::{env, error::Error, fs, process};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let config = Config::build(&args).unwrap_or_else(|err| {
+    let config = Config::build(env::args()).unwrap_or_else(|err| {
         eprintln!("Problem parsing arguments: {err}");
         process::exit(1);
     });
@@ -21,25 +19,33 @@ struct Config {
     ignore_case: bool,
 }
 impl Config {
-    fn build(args: &[String]) -> Result<Config, &str> {
-        if args.len() < 3 {
-            return Err("not enough arguments");
-        }
-        let query = args[1].clone();
-        let file_path = args[2].clone();
+    fn build(mut args: impl Iterator<Item = String>) -> Result<Config, &'static str> {
+        args.next();
+        let query = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a query parameter"),
+        };
+        let file_path = match args.next() {
+            Some(arg) => arg,
+            None => return Err("Didn't get a filepath parameter"),
+        };
         let ignore_case = env::var("IGNORE_CASE").is_ok();
-        Ok(Config { query, file_path, ignore_case})
+        Ok(Config {
+            query,
+            file_path,
+            ignore_case,
+        })
     }
 }
 
 fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.file_path)?;
     let result = if config.ignore_case {
-        search_insensitive(&config.query, &contents) 
+        search_insensitive(&config.query, &contents)
     } else {
-        search(&config.query, &contents) 
+        search(&config.query, &contents)
     };
-    for line in result{
+    for line in result {
         println!("{line}")
     }
     Ok(())
